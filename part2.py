@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+import time
 
 
 MODEL_PATH: str = "fraud_prevention_model.pt"
@@ -32,9 +33,13 @@ class PredictResponse(BaseModel):
 def on_startup() -> None:
     """Load the model on startup."""
     global model
-    try:
+    try:   
+        start = time.time()
         model = torch.jit.load(MODEL_PATH, map_location=device)
         model.eval()
+        end = time.time()
+        model_load_time = end - start
+        print("Model Load Time: ", model_load_time)
     except FileNotFoundError:
         model = None
 
