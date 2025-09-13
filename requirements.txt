@@ -1,3 +1,7 @@
 torch
 numpy
 pandas
+fastapi
+uvicorn 
+numpy 
+pydantic
