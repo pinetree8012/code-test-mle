@@ -58,4 +58,49 @@ Each output row includes:
 
 4. **Future Work**
 
-   For large scale production, I plan to extend this design with Ray to parallelize the sliding-window computation across nodes. This will allow the python-based logic to scale horizontally while retaining the simplicity of the two-pointer method.
+   For large scale production, I plan to extend this design with `Ray` to parallelise the sliding-window computation across nodes. This will allow the python-based logic to scale horizontally while retaining the simplicity of the two-pointer method.
+
+
+## Part 2: PyTorch Model for Inference
+
+### Goal
+
+Build a simple fraud-prevention inference service using a PyTorch model.
+
+---
+
+### Approach
+
+1. **Mean&Std**
+
+    To ensure consistent preprocessing, I logged the mean and standard deviation values when running create_model.py, and these figures are reused during inference.
+
+2. **TorchScript Integration**
+
+    The model was serialised into TorchScript (`scripted_model = torch.jit.script(model)`). which is a more efficient, deployable form.
+
+3. **Inference Workflow**
+
+    - Load: torch.jit.load() retrieves the serialised TorchScript model.
+    - Evaluation Mode: model.eval() disables training-specific behaviour such as Dropout or BatchNorm updates.
+    - Inference Mode: torch.inference_mode() further improves performance by disabling gradient tracking and metadata creation. This is more efficient than torch.no_grad().
+
+4. **Deployment Considerations**
+
+    - Warm-up Runs: Supplying dummy inputs at startup allows the JIT graph to optimise and reduces first-call latency.
+    - Hardware Choice: For larger models, careful consideration of CPU versus GPU inference is required.
+    - Batching: Under heavier traffic, batching strategies can significantly improve throughput, particularly when inputs follow a JSON structure similar to that in `customers.jsonl`, as they can then be processed at once.
+
+5. **Key Metrics**
+
+    To evaluate deployment quality, the following metrics can be considered:
+
+    - Traffic: Requests per second (RPS/QPS), hourly and daily totals, and peak load.
+    - Latency: End-to-end request times (p50/p95/p99), including cold-start latency.
+    - Saturation: CPU/GPU utilisation, memory/VRAM consumption, queue length, and concurrency.
+
+### Performance snapshot
+
+    - Model load: 0.022s
+    - Cold start (1st inference): 0.067s
+    - Warm-up: 10 calls (fixed input shape): avg 0.003s
